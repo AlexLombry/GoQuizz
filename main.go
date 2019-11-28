@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 )
 
 type Problem struct {
@@ -13,8 +15,9 @@ type Problem struct {
 }
 
 func main() {
-	// Generate flag with -h for help
+	// Generate flag
 	filename := flag.String("csv", "file.csv", "CSV file in formation 'question,answer'")
+	timeLimit := flag.Int("limit", 3, "The current time limit in seconds")
 	flag.Parse()
 
 	// Read the file
@@ -34,13 +37,29 @@ func main() {
 
 	problems := parseLines(lines)
 	correct := 0
+
+	// set timer
+	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
+
 	for i, problem := range problems {
 		fmt.Printf("Problem #%d: %s = \n", i+1, problem.question)
-		var answer string
-		// make sur it has a pointer value to it
-		_, _ = fmt.Scanf("%s\n", &answer)
-		if answer == problem.answer {
-			correct++
+
+		answerChannel := make(chan string)
+		go func() {
+			var answer string
+			// make sur it has a pointer value to it
+			_, _ = fmt.Scanf("%s\n", &answer)
+			answerChannel <- answer
+		}()
+
+		select {
+		case <-timer.C:
+			fmt.Printf("\nScored %d out of %d.\n", correct, len(problems))
+			return
+		case answer := <-answerChannel:
+			if answer == problem.answer {
+				correct++
+			}
 		}
 	}
 
@@ -53,7 +72,7 @@ func parseLines(lines [][]string) []Problem {
 	for i, line := range lines {
 		r[i] = Problem{
 			question: line[0],
-			answer: line[1],
+			answer: strings.TrimSpace(line[1]),
 		}
 	}
 
